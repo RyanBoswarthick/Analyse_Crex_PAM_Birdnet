@@ -1,0 +1,959 @@
+---
+title: "Analyse de phénologie de chant des Râles des genêts par acoustique passive"
+author: "R. Boswarthick"
+date: "2026-03-19"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+    code-summary: "Voir le code R"
+    theme: cosmo
+params:
+  lancer_birdnet:
+    label: "Exécuter l'analyse BirdNET sur R?"
+    value: false
+    input: select
+    choices: [true, false]
+---
+
+Ce fichier Quarto contient les fonctions et scripts R pour l'analyse de fichiers audio issus d'enregistreurs passifs.
+
+# Avant de passer aux analyses
+
+## Importance de la structure de l'environnement de travail
+
+La structure des dossiers pour correctement exploiter les résultats est la suivante :\
+1 - Dossier global (par exemple : PAM_BVA_2026)\
+2 - Dossier Enregistreurs (par exemple : Noyant1)\
+3 - Dossier Journées - au format YYYYMMDD
+
+[Exemple :]{.underline}
+
+Dans le dossier "Test algo" qui contient toutes les données sur le suivi PAM, j'ai :
+
+![](Capture%20d'écran%202026-03-30%20141827.png){fig-align="center" width="600"}
+
+Par dossier associé à chaque enregistreur, j'ai l'ensemble de mes nuits - ici 3.
+
+![](Capture%20d'écran%202026-03-30%20141837.png){fig-align="center" width="600"}
+
+Par dossier associé à chaque nuit, j'ai 144 fichiers audio.
+
+![](Capture%20d'écran%202026-03-30%20142443.png){fig-align="center" width="600"}
+
+## Importance des noms de dossier/ fichier
+
+Le code est basé sur les fichiers audio issus d'Audiomoths, avec un format précis qui permet de déduire l'heure et la date d'enregistrement (YYYYMMDD_HHMMSS.wav). Il est aussi fonctionnel sur les fichiers issus de SM mini, où il peut y avoir un nom donné (name_YYYYMMDD_HHMMSS.wav).
+
+Des adaptations sont donc nécessaires pour tout fichier provenant d'autres types d'enregistreur où le format de nom de dossier ou de fichier n'est pas le même, puisqu'il permet de récupérer la date et heure d'enregistrement.
+
+# Tutoriel BirdNET Analyzer
+
+Il est important d'analyser les fichiers audio via l'application BirdNET Analyzer avant de lancer les scripts suivants. Vous pouvez directement passer par l'application BirdNET Analyzer, disponible via ce lien : [BirdNET Analyzer install](#0).
+
+**ATTENTION : Ne pas lancer les analysezs sur l'ensemble des données dans un premier temps !**
+
+Il est important de tester la vitesse de traitement des données par votre ordinateur, le temps de traitement peut être très long pour un nombre important de fichiers.\
+\
+Par exemple, pour un jeu de données contenant 3 nuits complètes pour 3 enregistreurs (1296 fichiers audio), les analyses via BirdNET mettent 18 minutes (Confiance 0.6 - Sensibilité 1.5 - liste d'espèces Crex crex only).
+
+Deux solutions pour contrer ce long traitement :
+
+-   Traiter chaque nuit ou enregistreur séparemment (changer de répertoire de travail à chaque fois)
+
+-   Laisser tourner les analyses la nuit (en étant sur que l'ordinateur/ processeur ne se mettra pas en veille - ce qui stoppera l'analyse)
+
+Une fois l'algorithme BirdNET lancé, en fonction de la puissance de votre ordinateur, il vous sera difficile de réaliser d'autres tâches.\
+Une solution est de réduire le nombre de CPU impliqués dans l'analyse BirdNET - ce qui augmentera le temps de traitement mais vous pourrez effectuer d'autres tâches sur votre ordinateur.
+
+1.  **Chargement du répertoire**
+
+-   Une fois l'application BirdNET Analyzer lancée, sélectionner "Batch analysis" (parmi les onglets en haut de l'interface).
+
+![](Capture%20d'écran%202026-03-20%20164315.png){fig-align="center"}
+
+-   Sélectionner une "input directory", qui représente le dossier qui contient tous les fichiers que vous souhaitez analyser.\
+    Une fois sélectionné, une liste de l'ensemble des fichiers *.wav* présents dans le dossier devrait s'afficher.
+
+-   Ne surtout pas toucher à "output directory" - tous les *.csv* issus de l'algorithme BirdNET seront enregistrés dans le même dossier que le fichier audio d'origine.
+
+![](Capture%20d'écran%202026-03-20%20164323.png){fig-align="center"}
+
+2.  **Paramètres associés à l'analyse**
+
+-   Ouvrir l'onglet "Inference settings", régler le paramètre "sensitivity" sur 1.5, le "minimum confidence" sur 0.5, et ne pas toucher au reste.
+
+![](Capture%20d'écran%202026-03-20%20164330.png){fig-align="center"}
+
+-   Ouvrir l'onglet "Species selection", sélectionner "Custom species list" et définir la liste d'espèces souhaitées (qui doit au moins contenir le Râle des genêts). Cette option vous permet de lancer les analyser en limitant l'algorithme à cette liste d'espèces prédéfinie, évitant ainsi des identifications d'oiseaux non présents sur le site (me contacter si besoin d'une liste au format .txt)
+
+![](Capture%20d'écran%202026-03-20%20164336.png){fig-align="center"}
+
+**ATTENTION** : le seuil de confiance de 0.5 est bas, et n'est valable que pour des identifications de râle car l'espèce a un chant facile à identifier (peut aussi se prêter pour le Butor étoilé). Si vous souhaitez étudier tout un cortège d'espèces, je vous conseille de prendre un seuil plus élevé (au minimum 0.7 - mais il y aura quand même des faux positifs (mauvaises identifications) - attention notamment aux marouettes).
+
+-   Ouvrir l'onglet "Output settings", sélectionner uniquement "CSV".\
+    Aucune autre option ne doit être cochée.
+
+![](Capture%20d'écran%202026-03-20%20164359.png){fig-align="center"}
+
+Une fois toutes ces options cochées, la liste d'espèces cibles chargée, la puissance de votre ordinateur testée, vous pouvez lancer les analyses sur vos données en appuyant sur le bouton "**Analyze**".
+
+# Une fois toutes les analyses BirdNET effectuées, vous pouvez passer à la suite du script.
+
+### Chargement des packages
+
+```{r setup, include=FALSE}
+# Liste des packages nécessaires
+packages_requis <- c("dplyr", "lubridate", "ggplot2", "purrr", "tidyr", "tuneR", "remotes", "knitr", "suncalc")
+
+# Installation des packages manquants
+packages_a_installer <- packages_requis[!(packages_requis %in% utils::installed.packages()[,"Package"])]
+if(length(packages_a_installer)) utils::install.packages(packages_a_installer)
+
+# BirdNET à installer depuis Github si besoin de passer par une analyse sur R
+if (!"birdnetR" %in% utils::installed.packages()[,"Package"]) {
+  remotes::install_github("BirdNET-Team/birdnetR")
+}
+
+# Chargement
+library(birdnetR)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(purrr) 
+library(tidyr) 
+library(tuneR)
+
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+### Choix du dossier cible contenant tous les enregistreurs
+
+```{r}
+#Choix de la directory (dossier) qui contient les fichiers csv (une fenêtre devrait s'ouvrir)
+
+audio_dir <- tcltk::tk_choose.dir(
+  default = "C:/", 
+  caption = "Choisissez le dossier pour la suite des analyses"
+)
+message(paste0("Le dossier - ", audio_dir," a bien été chargé, les analyses vont pouvoir démarrer"))
+
+# Optionnel : aussi possible de le préciser en écrit
+# audio_dir <- "C:/Users/..... votre chemin d'accès à tous les enregistreurs"
+```
+
+## Analyses des résultats issus de BirdNET
+
+Ce script permet d'analyser toutes les sorties de BirdNET et d'en extraire plusieurs fichiers CSV associés à : une journée d'enregistrement, un enregistreur, et pour l'ensemble des enregistreurs.
+
+Le reste du script est rapide à executer étant donné qu'il s'appuie sur tous les fichiers *.csv* issus du traitement par l'application BirdNET Analyzer (et/ou du premier script à la fin de ce fichier).
+
+### Chargement de la fonction de compilation- show_me_some_crex
+
+Cette fonction compile tous les csv compris dans chaque sous dossier (enregistreur/nuit), extraits le nombre de contacts, la date, l'heure ainsi que l'espèce ciblée (dans ce cas, le Râle des genêts, et créée un csv bilan pour chaque dossier)
+
+```{r}
+show_me_some_crex <- function(audio_dir) {
+
+  # Alerte si le dossier audio_dir n'existe pas/ n'a pas été spécifié
+  if (!base::dir.exists(audio_dir)) {
+    base::stop("Le dossier spécifié n'existe pas : ", audio_dir)
+  }
+
+  # Chargement de tous les csv issus de l'algorithme birdnet - la nomenclature est tres importante, pour éviter de charger les csv issus d'anciens scripts de compilation
+  csv_files <- base::list.files(
+    path = audio_dir,
+    pattern = "(_birdnet\\.csv|\\.BirdNET\\.results\\.csv)$",
+    full.names = TRUE,
+    recursive = TRUE
+  )
+
+  # Si aucun csv contenu dans l'audio_dir, message d'erreur
+  if (base::length(csv_files) == 0) return(base::message("Aucun fichier CSV trouvé."))
+
+  # Alerte si doublons
+  noms_fichiers <- base::basename(csv_files)
+  if (base::any(base::duplicated(noms_fichiers))) {
+    doublons <- base::unique(noms_fichiers[base::duplicated(noms_fichiers)])
+    base::warning("Doublons de noms détectés (traités séparément) : ", base::paste(doublons, collapse = ", "))
+  }
+
+  # Si tout va bien, suite de la fonction
+  
+  all_detections <- csv_files |> 
+    purrr::map(\(file) {
+      # Lecture brute
+      df <- utils::read.csv(file, stringsAsFactors = FALSE, check.names = FALSE)
+      
+      # colonne scientific name en minuscule
+      col_idx <- base::grep("Scientific.name", base::names(df), ignore.case = TRUE)
+      if (base::length(col_idx) > 0) {
+        base::names(df)[col_idx] <- "scientific_name"
+      }
+
+      # Arborescence de chaque csv stockée
+      nom_fichier_csv <- base::basename(file)
+      parent_folder   <- base::basename(base::dirname(file))      
+      grandparent_folder <- base::basename(base::dirname(base::dirname(file))) 
+
+      # Extraction date et heure en fonction du nom du fichier = IMPORTANT DE BIEN NOMMER LES FICHIERS
+      raw_ts   <- stringr::str_extract(nom_fichier_csv, "\\d{8}.\\d{6}")
+      clean_ts <- stringr::str_replace_all(raw_ts, "[^0-9]", "")
+      dt_obj   <- lubridate::ymd_hms(clean_ts, quiet = TRUE)
+      
+      if (base::is.na(dt_obj) && "recording_start" %in% base::names(df)) {
+        dt_obj <- lubridate::as_datetime(df$recording_start[1])
+      }
+      
+      nom_wav <- stringr::str_remove(nom_fichier_csv, "(_birdnet\\.csv|\\.BirdNET\\.results\\.csv)$") |> 
+        base::paste0(".wav")
+
+      meta_info <- base::data.frame(
+        file_id       = file, 
+        original_file = nom_wav,
+        enregistreur  = grandparent_folder,
+        folder_path   = base::dirname(file),
+        session_id    = base::paste0(grandparent_folder, "_", parent_folder),
+        date_obs      = lubridate::as_date(dt_obj),
+        time_obs      = base::format(dt_obj, "%H:%M:%S"),
+        stringsAsFactors = FALSE
+      )
+      
+      if (base::nrow(df) == 0 || !"scientific_name" %in% base::names(df)) {
+        df <- base::data.frame(scientific_name = NA)
+      }
+      
+      # Fusion des data
+      base::cbind(df, meta_info) |> 
+        dplyr::mutate(
+          is_crex = !base::is.na(scientific_name) & 
+                    base::grepl("Crex crex", scientific_name, ignore.case = TRUE)
+        )
+    }) |> 
+    purrr::list_rbind()
+
+  # Résumé + nom espèce
+  process_recap <- function(data) {
+    data |> 
+      dplyr::group_by(file_id, original_file, date_obs, time_obs) |> 
+      dplyr::summarise(
+        # On garde le nom scientifique s'il y a présence, sinon NA
+        Scientific_name = "Crex crex",
+        Presence = base::as.integer(base::any(is_crex, na.rm = TRUE)), 
+        Contacts = base::sum(is_crex, na.rm = TRUE),
+        .groups = "drop"
+      ) |> 
+      dplyr::select(-file_id)
+  }
+
+  # Recap par journée d'enregistrement
+  all_detections |> 
+    dplyr::group_split(folder_path) |> 
+    purrr::walk(\(data_dossier) {
+      recap <- process_recap(data_dossier) |> dplyr::arrange(time_obs)
+      utils::write.csv(recap, base::file.path(data_dossier$folder_path[1], base::paste0(data_dossier$session_id[1], "_CREX.csv")), row.names = FALSE)
+    })
+
+  # Recap par enregistreur
+  all_detections |> 
+    dplyr::group_split(enregistreur) |> 
+    purrr::walk(\(data_enr) {
+      recap <- process_recap(data_enr) |> dplyr::arrange(date_obs, time_obs)
+      utils::write.csv(recap, base::file.path(base::dirname(data_enr$folder_path[1]), base::paste0(data_enr$enregistreur[1], "_CREX.csv")), row.names = FALSE)
+    })
+
+  # Recap pour TOUS les enregistreurs
+  master_final <- all_detections |> 
+    dplyr::group_by(enregistreur, file_id, original_file, date_obs, time_obs) |> 
+    dplyr::summarise(
+      Presence = base::as.integer(base::any(is_crex, na.rm = TRUE)), 
+      Contacts = base::sum(is_crex, na.rm = TRUE),
+      Scientific_name ="Crex crex",
+      .groups = "drop"
+    ) |> 
+    dplyr::select(
+      Enregistreur = enregistreur, 
+      Filename     = original_file, 
+      Scientific_name,
+      Presence, 
+      Date         = date_obs, 
+      Time         = time_obs, 
+      Contacts
+    ) |> 
+    dplyr::arrange(Enregistreur, Date, Time)
+
+  utils::write.csv(master_final, base::file.path(audio_dir, base::paste0(base::basename(audio_dir), "_ALLDEVICES_ALLDAYS_CREX.csv")), row.names = FALSE)
+  
+  base::message("Succès ! Tous les CSV ont été générés. Vous pouvez procéder à l'exploration des données")
+  return(master_final)
+}
+```
+
+## Lancement de la fonction
+
+```{r}
+alldevices_data <- show_me_some_crex(audio_dir)
+```
+
+Pour 1296 fichiers audio, cette boucle a mis 30 secondes pour tourner.
+
+# Analyses
+
+Une fois tous les fichiers .csv analysés et compilés, il est possible d'analyser le caractère chanteur des mâles. Voici quelques exemples de graphiques qui permettent d'étudier la phénologie de chant des mâles pour tous les enregistreurs.
+
+## Ouverture du fichier issu de la fonction "show_me_some_crex"
+
+```{r}
+# Chemins vers le fichier csv compilé (qui contient toutes les sorties de BirdNET)
+    #soit directement depuis la boucle précédente
+alldevices_data 
+
+    # soit en chargeant le fichier csv
+alldevices_data<-read.csv("C:/Users/rboswarthick/Desktop/PhD stuff/LPO/Terrain RdG/PAM/Test algo/Test algo_ALLDEVICES_ALLDAYS_CREX.csv")
+
+#Chargement du dossier où tous les pour enregistrer les graphs
+audio_dir <- "C:/Users/rboswarthick/Desktop/PhD stuff/LPO/Terrain RdG/PAM/Test algo"
+
+all_data_clean <- alldevices_data |> 
+  dplyr::mutate(
+    #Formater les colonnes temporelles
+    Date_heure = lubridate::ymd_hms(paste(Date, Time)),
+    Date = lubridate::as_date(Date),
+    Time = lubridate::hms(Time),
+    Hour = lubridate::hour(Date_heure),
+    #Ajout d'une colonne "Periode"
+    Periode = dplyr::if_else(Hour >= 7 & Hour <= 21, "Jour", "Nuit")
+  )
+
+head(all_data_clean)
+
+```
+
+## Exploration des données
+
+### Statistiques globales par enregistreur
+
+```{r}
+stats_globales_crex <- all_data_clean |>
+  dplyr::filter(Contacts > 0) |>
+  dplyr::group_by(Enregistreur) |>
+  dplyr::summarise(
+    Date_Premier_Chant = base::min(Date_heure, na.rm = TRUE),
+    Date_Dernier_Chant = base::max(Date_heure, na.rm = TRUE),
+    Total_Contacts = base::sum(Contacts, na.rm = TRUE),
+    Duree_Chant_hour = base::round((Total_Contacts * 3) / 3600, 2),
+    .groups = "drop"
+  ) |>
+  dplyr::arrange(Date_Premier_Chant)
+
+print(stats_globales_crex)
+```
+
+### Nombre de contacts par heure de la journée pour tous les enregistreurs
+
+```{r}
+contacts_hour <- all_data_clean |>
+  dplyr::group_by(Date, Hour, Periode) |>
+  dplyr::summarise(contacts_tot = base::sum(Contacts, na.rm = TRUE), .groups = "drop") |>
+  dplyr::mutate(Hour_centered = dplyr::if_else(Hour <= 12, Hour, Hour - 24))
+
+head(contacts_hour)
+
+hour_levels <- c(13:23, 0:12)
+
+contacts_hour_fixed <- contacts_hour |>
+  dplyr::mutate(
+    Hour = base::factor(Hour, levels = hour_levels)
+  )
+
+plot_hour <- ggplot2::ggplot(
+    contacts_hour_fixed, 
+    ggplot2::aes(x = Hour, y = contacts_tot, fill = Periode)
+  ) +
+  ggplot2::stat_summary(
+    fun = "mean", 
+    geom = "col", 
+    alpha = 0.8
+  ) +
+  ggplot2::stat_summary(
+    fun.data = "mean_se", 
+    geom = "errorbar", 
+    width = 0.1
+  ) +
+  ggplot2::scale_fill_manual(
+    values = c("Jour" = "#E69F00", "Nuit" = "darkblue")
+  ) +
+  ggplot2::labs(
+    title = "Activité de chant journalière",
+    x = "Heure",
+    y = "Nombre de contacts moyen par enregistrement",
+    fill = "Période"
+  ) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    panel.grid.minor = ggplot2::element_blank(),
+    axis.text.x = ggplot2::element_text(angle = 0)
+  )
+
+base::print(plot_hour)
+```
+
+```{r}
+# Création d'un répertoire pour stocker l'ensemble des figures
+chemin_figures <- base::file.path(audio_dir, "figures")
+
+if (!base::dir.exists(chemin_figures)) {
+  base::dir.create(chemin_figures, recursive = TRUE)
+}
+
+nom_export <- base::file.path(chemin_figures, "01heure_chant_crex.png")
+
+ggplot2::ggsave(
+  filename = nom_export,
+  plot = plot_hour,
+  width = 12,
+  height = 8,
+  dpi = 300,
+  bg = "white"
+)
+
+base::message("Graphique enregistré : ", nom_export)
+```
+
+#### Nombre de contacts par heure de la journée pour tous les enregistreurs - graphique avec régression linéaire
+
+```{r}
+presence_data <- all_data_clean |>
+  dplyr::mutate(
+    Hour_num = base::as.numeric(base::as.character(Hour)),
+    Hour_cont = dplyr::if_else(Hour_num <= 12, Hour_num + 24, Hour_num)
+  )
+
+model_chant <- stats::glm(
+  Presence ~ poly(Hour_cont, 2), 
+  data = presence_data, 
+  family = stats::binomial(link = "logit")
+)
+
+summary(model_chant)
+
+preds_chant <- ggeffects::ggpredict(model_chant, terms = "Hour_cont [all]")
+
+heure_pic <- preds_chant |>
+  dplyr::filter(predicted == base::max(predicted)) |>
+  dplyr::pull(x)
+heure_reelle <- base::ifelse(heure_pic >= 24, heure_pic - 24, heure_pic)
+base::print(base::paste("Le pic de chant est à :", heure_reelle, "h"))
+
+plot_prob_chant <- ggplot2::ggplot() +
+  ggplot2::geom_jitter(
+    data = presence_data,
+    ggplot2::aes(x = Hour_cont, y = Presence, color = Periode), 
+    height = 0.01, 
+    alpha = 0.1, 
+    size = 0.5
+  ) +
+  ggplot2::geom_ribbon(
+    data = preds_chant,
+    ggplot2::aes(x = x, ymin = conf.low, ymax = conf.high),
+    fill = "grey80",
+    alpha = 0.5
+  ) +
+  ggplot2::geom_line(
+    data = preds_chant,
+    ggplot2::aes(x = x, y = predicted),
+    color = "black",
+    linewidth = 1
+  ) +
+  ggplot2::scale_x_continuous(
+    breaks = base::seq(13, 36, by = 2),
+    labels = function(x) base::paste0(dplyr::if_else(x >= 24, x - 24, x))
+  ) +
+  ggplot2::scale_color_manual(values = base::c("Jour" = "#E69F00", "Nuit" = "#2C3E50")) +
+  ggplot2::labs(
+    title = "Probabilité de chant de Râle des genêts",
+    subtitle = "0 = Absence ; 1 = Présence",
+    x = "Heure",
+    y = "Présence",
+    color = "Période"
+  ) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    panel.grid.minor = ggplot2::element_blank(),
+    legend.position = "right"
+  )
+
+base::print(plot_prob_chant)
+```
+
+```{r}
+nom_export <- base::file.path(chemin_figures, "02heure_chant_crex_glm.png")
+
+ggplot2::ggsave(
+  filename = nom_export,
+  plot = plot_prob_chant,
+  width = 12,
+  height = 8,
+  dpi = 300,
+  bg = "white"
+)
+
+base::message("Graphique enregistré : ", nom_export)
+```
+
+### Nombre de contacts par jour et par enregistreur
+
+```{r}
+pheno_data <- all_data_clean |>
+  dplyr::group_by(Date, Enregistreur) |>
+  dplyr::summarise(total_contacts = sum(Contacts, na.rm = TRUE), .groups = "drop")
+
+head(pheno_data)
+
+
+plot_day_device<-ggplot2::ggplot(pheno_data, ggplot2::aes(x = Date, y = total_contacts, color = Enregistreur)) +
+  ggplot2::geom_line(linewidth = 1) +
+  ggplot2::geom_point() +
+  ggplot2::labs(title = "Phénologie de chant de Râle des genêts - par jour", x = "Date", y = "Nombre de contacts par jour") +
+  ggplot2::theme_minimal()
+
+print(plot_day_device)
+```
+
+```{r}
+nom_export <- base::file.path(chemin_figures, "03date_enregistreur_crex.png")
+  
+  ggplot2::ggsave(
+    filename = nom_export,
+    plot = plot_day_device,
+    width = 12,
+    height = 8,
+    dpi = 300,
+    bg = "white"
+  )
+
+base::message("Graphique enregistré : ", nom_export)
+```
+
+### Nombre de contacts par jour, par période et par enregistreur
+
+Lorsqu'un mâle est apparié, il a été démontré un changement significatif de l'activité de chant spontanée entre 23h et 2h du matin. Il est donc pertinent de cibler cette période pour détecter tout changement de comportement de chant, qui voudrait donc dire présence de femelle.
+
+La fonction suivante génère, pour tous les enregistreurs et sur l'ensemble de la période suivie, des graphiques sur la phénologie de chant des mâles en journée (entre 9h et 17h) et la nuit (entre 23h et 2h).
+
+Des options ont été rajoutées pour cibler des périodes particulières, et pour sélectionner un ou plusieurs enregistreurs.
+
+### Chargement de la fonction de phénologie de chant
+
+```{r}
+crex_when_do_you_sing <- function(
+    data, 
+    date_debut = NULL, 
+    date_fin = NULL,
+    site_select = NULL
+) {
+  
+  data_filtered <- data
+  
+  if (!base::is.null(site_select)) {
+    data_filtered <- data_filtered |> 
+      dplyr::filter(Enregistreur == site_select)
+  }
+  
+  if (!base::is.null(date_debut)) {
+    data_filtered <- data_filtered |> 
+      dplyr::filter(base::as.Date(Date_heure) >= base::as.Date(date_debut))
+  }
+  
+  if (!base::is.null(date_fin)) {
+    data_filtered <- data_filtered |> 
+      dplyr::filter(base::as.Date(Date_heure) <= base::as.Date(date_fin))
+  }
+
+  if (base::nrow(data_filtered) == 0) {
+    base::stop("Aucune donnée disponible pour les paramètres (dates ou enregistreur) sélectionnés.")
+  }
+
+  data_stats <- data_filtered |>
+    dplyr::mutate(
+      Heure = lubridate::hour(Date_heure),
+      Periode_pheno = dplyr::case_when(
+        Heure >= 9 & Heure <= 17 ~ "Jour",
+        Heure >= 23 | Heure <= 2 ~ "Nuit",
+        TRUE ~ "Hors-fenetre"
+      )
+    ) |>
+    dplyr::filter(Periode_pheno != "Hors-fenetre") |>
+    dplyr::arrange(Enregistreur, Date_heure) |> 
+    dplyr::group_by(Enregistreur) |>
+    dplyr::mutate(ID_Sequence = dplyr::consecutive_id(Periode_pheno)) |> 
+    dplyr::group_by(Enregistreur, Periode_pheno) |>
+    dplyr::mutate(Num_Temp = dplyr::dense_rank(ID_Sequence)) |>
+    dplyr::group_by(Enregistreur) |>
+    dplyr::mutate(
+    Est_Nuit_Precoce = (Periode_pheno[1] == "Nuit" & (Heure[1] >= 21 | Heure[1] <= 7)),
+    Num_P = dplyr::if_else(Periode_pheno == "Nuit" & Est_Nuit_Precoce, Num_Temp - 1, Num_Temp),
+    Label_Brut = base::paste0(base::substr(Periode_pheno, 1, 1), Num_P)) |>
+  dplyr::ungroup() |>
+    dplyr::mutate(
+      Heure_Fact = base::factor(Heure, levels = base::c(23, 0, 1, 2, 9, 10, 11, 12, 13, 14, 15, 16, 17))
+    )
+
+  stats_graphique <- data_stats |>
+    dplyr::group_by(Enregistreur, Label_Brut, Periode_pheno, Heure_Fact) |>
+    dplyr::summarise(
+      n_obs = dplyr::n(),
+      mean_c = base::mean(Contacts, na.rm = TRUE),
+      sd_c = stats::sd(Contacts, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(
+      erreur = 1.96 * (sd_c / base::sqrt(n_obs)),
+      ic_inf = base::pmax(0, mean_c - erreur),
+      ic_sup = base::pmin(20, dplyr::if_else(base::is.na(mean_c + erreur), mean_c, mean_c + erreur))
+    )
+
+  labels_somme <- data_stats |>
+    dplyr::group_by(Enregistreur, Label_Brut) |>
+    dplyr::summarise(
+      Somme_Totale = base::sum(Contacts, na.rm = TRUE),
+      x_pos = (base::length(base::unique(Heure_Fact)) + 1) / 2,
+      .groups = "drop"
+    )
+
+  liste_sites <- base::unique(data_stats$Enregistreur)
+  
+  for (site in liste_sites) {
+    df_site_brut <- data_stats |> dplyr::filter(Enregistreur == site)
+    ordre_labels <- df_site_brut |> dplyr::arrange(Date_heure) |> dplyr::pull(Label_Brut) |> base::unique()
+    
+    df_p <- stats_graphique |> 
+      dplyr::filter(Enregistreur == site) |> 
+      dplyr::mutate(Cycle_Label = base::factor(Label_Brut, levels = ordre_labels))
+      
+    df_l <- labels_somme |> 
+      dplyr::filter(Enregistreur == site) |> 
+      dplyr::mutate(Cycle_Label = base::factor(Label_Brut, levels = ordre_labels))
+
+    p <- ggplot2::ggplot(df_p, ggplot2::aes(x = Heure_Fact, y = mean_c, fill = Periode_pheno)) +
+      ggplot2::geom_rect(ggplot2::aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = Periode_pheno), 
+                         alpha = 0.05, show.legend = FALSE) +
+      ggplot2::geom_col(alpha = 0.85) +
+      ggplot2::geom_errorbar(ggplot2::aes(ymin = ic_inf, ymax = ic_sup), width = 0.2) +
+      
+      ggplot2::geom_text(
+        data = df_l, 
+        ggplot2::aes(x = x_pos, y = 20, label = Somme_Totale),
+        inherit.aes = FALSE, size = 5, fontface = "bold", vjust = -0.5
+      ) +
+      
+      ggplot2::facet_grid(. ~ Cycle_Label, scales = "free_x", space = "free_x") +
+      ggplot2::scale_y_continuous(limits = base::c(0, 21)) + 
+      ggplot2::scale_fill_manual(values = base::c("Jour" = "#fed98e", "Nuit" = "#2b8cbe")) +
+      ggplot2::labs(
+        title = base::paste("Phénologie de chant :", site),
+        subtitle = base::paste("Analyse du", base::min(base::as.Date(df_site_brut$Date_heure)), 
+                               "au", base::max(base::as.Date(df_site_brut$Date_heure))),
+        x = "Heure", y = "Contacts moyens/min"
+      ) +
+      ggplot2::theme_minimal() +
+      ggplot2::theme(
+        panel.grid.major.x = ggplot2::element_blank(),
+        panel.spacing = ggplot2::unit(0.1, "lines"),
+        axis.text.x = ggplot2::element_blank())
+
+    safe_site_name <- base::gsub("[^[:alnum:]]", "_", site)
+    nom_fichier <- base::file.path(chemin_figures, base::paste0("pheno_", safe_site_name, ".png"))
+
+    base::print(p)
+
+    ggplot2::ggsave(
+      filename = nom_fichier,
+      plot = p,
+      width = 14,
+      height = 8,
+      dpi = 300,
+      bg = "white"
+    )
+  }
+base::message("Figures toutes enregistrées : ", chemin_figures)
+}
+```
+
+### Lancement de la fonction
+
+```{r}
+crex_when_do_you_sing(
+  all_data_clean,
+  date_debut = NULL, # à changer si vous voulez cibler une période précise - au format "YYYY-MM-DD"
+  date_fin =  NULL, # à changer si vous voulez cibler une période précise - au format "YYYY-MM-DD"
+  site_select = NULL # à changer si vous voulez cibler un seul enregistreur "nom enregistreur"
+)
+
+# Exemple avec une date et un enregistreur précis
+#crex_when_do_you_sing(
+ # all_data_clean,
+ # date_debut = "2025-05-10", 
+ # date_fin =  "2025-06-01")
+```
+
+Avec l'ensemble de ces graphiques, vous devriez pouvoir comprendre la phénologie de chant des Râles des genêts. N'hésitez pas à rajouter des éléments pour l'adapter au mieux à vos enjeux.
+
+Bonnes analyses !
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+# BirdNET sur R (optionnel)
+
+Cette partie contient une fonction qui permet d'analyser automatiquement tous les fichiers audio *.wav ou .mp3* contenus dans un même sous dossier.\
+Par souci de performance, il est recommandé de tester sur un dossier contenant une journée d'enregistrement avant de le lancer sur un plus grand nombre de fichiers audio car cela peut être TRES chronophage (plusieures heures pour un ensemble de nuits).
+
+**Problème** :\
+J'ai eu des difficultés à charger une liste d'espèce prédéfinie pour le package R directement, il est donc possible qu'il détecte des espèces hors Europe (BirdNET a un catalogue de plus de 3000 espèces).
+
+**Solution ?**\
+Il est recommandé de directement passer par l'application birdNET Analyzer, disponible via ce lien : [BirdNET Analyzer install](https://birdnet.cornell.edu/analyzer/?lang=fr). Il vous sera possible de lancer les analyser via une liste d'espèces prédéfinie (me contacter si besoin de cette liste) pour être sur de ne se cantonner qu'à un certain cortège d'espèces.
+
+Si besoin, voici le code pour charger une liste d'espèce :
+
+```{r}
+species_list <- utils::read.table(
+  file = "data/species_list.txt", 
+  header = TRUE,
+  sep = "_",
+  quote = "",
+  stringsAsFactors = FALSE)
+
+head(species_list)
+```
+
+## Chargement de la fonction BirdNET Analyzer
+
+```{r}
+birdNET_R_analyzer <- function(audio_dir, 
+                               min_conf = 0.5, #vu qu'on fait du râle, on peut rester assez bas sur l'intervalle de confiance - mais si autre chose, alors monter la confiance
+                               species_list_path = NULL, 
+                               model_version = "v2.4") {
+
+  audio_files <- list.files(
+    path = audio_dir,
+    pattern = "\\.(wav|mp3)$",
+    full.names = TRUE,
+    ignore.case = TRUE,
+    recursive = TRUE
+  )
+
+  if (base::length(audio_files) == 0) return(NULL)
+
+  model <- birdnetR::birdnet_model_tflite(model_version)
+  
+  pb <- utils::txtProgressBar(min = 0, max = base::length(audio_files), style = 3)
+  all_results <- base::list()
+  
+  n_files <- base::length(audio_files)
+  start_time <- base::Sys.time()
+
+  for(i in base::seq_along(audio_files)) {
+    audio_file <- audio_files[i]
+    ext <- tools::file_ext(audio_file)
+    
+    if(ext == "wav") {
+      w <- tuneR::readWave(audio_file)
+      if(w@stereo) {
+        base::suppressWarnings(tuneR::writeWave(tuneR::mono(w, "both"), audio_file))
+      }
+    } else if(ext == "mp3") {
+      w <- tuneR::readMP3(audio_file)
+      if(w@stereo) {
+        temp_wav <- base::sub("\\.mp3$", "_mono.wav", audio_file)
+        base::suppressWarnings(tuneR::writeWave(tuneR::mono(w, "both"), temp_wav))
+        audio_file <- temp_wav
+      }
+    }
+
+    predictions <- base::tryCatch({
+        birdnetR::predict_species_from_audio_file(
+          model = model,
+          audio_file = audio_file,
+          filter_species = NULL,
+          min_confidence = min_conf,
+          keep_empty = TRUE
+        )
+      },
+      error = function(e) {
+        base::warning("BirdNET a échoué pour : ", base::basename(audio_file), " (", e$message, ")")
+        return(base::data.frame()) 
+      }
+    )
+
+    if(base::nrow(predictions) > 0) {
+      predictions$file <- base::basename(audio_file)      
+      all_results[[i]] <- predictions
+    
+      output_csv <- base::file.path(
+        base::dirname(audio_file),
+        base::paste0(tools::file_path_sans_ext(base::basename(audio_file)), "_birdnet.csv")
+      )
+      utils::write.csv(predictions, file = output_csv, row.names = FALSE)
+    }
+
+    utils::setTxtProgressBar(pb, i)
+    progression_pct <- (i / n_files) * 100
+    
+    if (i == 1 || i == n_files || (i %% max(1, floor(n_files / 10)) == 0)) {
+      sprintf("\r [%3.0f%%] en cours...", progression_pct) |> 
+        cat()
+    }
+  }
+
+  close(pb)
+  total_duration <- difftime(Sys.time(), start_time)
+  
+  message(
+    "\nAnalyse terminée en : ", 
+    round(total_duration, 1), " ", 
+    attr(total_duration, "units")
+  )
+  
+  final_results <- all_results |> 
+    purrr::list_rbind()
+  
+  return(final_results)
+}
+```
+
+## Lancement de la fonction
+
+```{r}
+if (params$lancer_birdnet) {
+  base::message("Lancement de l'analyse automatique BirdNET...")
+  
+  results_birdnet <- birdNET_R_analyzer(
+    audio_dir         = audio_dir, 
+    min_conf          = 0.5, 
+    species_list_path = NULL, 
+    model_version     = "v2.4"
+  )
+  
+  results_birdnet |> 
+    utils::head() |> 
+    base::print()
+    
+} else {
+  base::message("Option 'lancer_birdnet' réglée sur FALSE. Analyse ignorée pour ce rendu.")
+  results_birdnet <- NULL
+}
+```
+
+# Partie bonus : travailler sur toutes les espèces et faire de la phéno de chant
+
+Cette partie signifie que les analyses BirdNET ont été réalisées avec un fichier de liste d'espèces contenant plusieurs espèces. Vous pouvez soit lancer l'algorithme BirdNET sur toute une liste d'espèces (nicheuses en France par exemple) ou alors sur une liste précise d'espèces (de prairies).
+
+```{r}
+alldevices_species_summary <- function(audio_dir) {
+  
+  if (!base::dir.exists(audio_dir)) {
+    base::stop("Le dossier spécifié n'existe pas : ", audio_dir)
+  }
+
+  # Liste à modifier si besoin
+  especes_prairiales <- c(
+    "Crex crex", "Emberiza schoeniclus", "Acrocephalus schoenobaenus", 
+    "Emberiza calandra", "Motacilla flava", "Locustella naevia",
+    "Saxicola rubetra", "Alauda arvensis", "Coturnix coturnix"
+  )
+
+  csv_files <- base::list.files(
+    path = audio_dir,
+    pattern = "_birdnet\\.csv$",
+    full.names = TRUE,
+    recursive = TRUE
+  )
+  
+  if (base::length(csv_files) == 0) {
+    base::message("Aucun fichier BirdNET trouvé.")
+    return(NULL)
+  }
+
+  all_detections <- csv_files |> 
+    purrr::map(\(file_path) {
+      df_brut <- utils::read.csv(file_path, stringsAsFactors = FALSE)
+      nom_csv <- base::basename(file_path)
+      
+      nom_enregistreur <- base::basename(base::dirname(base::dirname(file_path))) 
+      
+      ts_extrait <- stringr::str_extract(nom_csv, "\\d{8}.\\d{6}") |> 
+        stringr::str_replace_all("[^0-9]", "")
+      
+      dt_objet <- lubridate::ymd_hms(ts_extrait, quiet = TRUE)
+      
+      if (base::is.na(dt_objet)) dt_objet <- base::file.info(file_path)$mtime
+      
+      meta_data <- base::data.frame(
+        original_file = stringr::str_remove(nom_csv, "_birdnet\\.csv$"),
+        enregistreur  = nom_enregistreur,
+        date_obs      = lubridate::as_date(dt_objet),
+        time_obs      = base::format(dt_objet, "%H:%M:%S"),
+        stringsAsFactors = FALSE
+      )
+      
+      if (base::nrow(df_brut) == 0) {
+        df_brut <- base::data.frame(scientific_name = NA, common_name = NA, confidence = NA)
+      }
+      
+      base::cbind(df_brut, meta_data)
+    }) |> 
+    purrr::list_rbind()
+
+  cortege_synthese <- all_detections |> 
+    dplyr::filter(scientific_name %in% especes_prairiales) |> 
+    dplyr::group_by(original_file, scientific_name) |> 
+    dplyr::summarise(count = dplyr::n(), .groups = "drop") |> 
+    tidyr::pivot_wider(names_from = scientific_name, values_from = count, values_fill = 0)
+
+  nom_projet <- base::basename(audio_dir)
+  
+  cortege_final <- all_detections |> 
+    dplyr::select(enregistreur, original_file, date_obs, time_obs) |> 
+    dplyr::distinct() |> 
+    dplyr::left_join(cortege_synthese, by = "original_file") |> 
+    dplyr::mutate(dplyr::across(dplyr::where(base::is.numeric), ~tidyr::replace_na(.x, 0))) |> 
+    dplyr::arrange(enregistreur, date_obs, time_obs)
+
+  utils::write.csv(
+    cortege_final, 
+    base::file.path(audio_dir, base::paste0(nom_projet, "_CORTEGE_PRAIRIES.csv")), 
+    row.names = FALSE
+  )
+
+  inventaire_global <- all_detections |> 
+    dplyr::filter(!base::is.na(scientific_name)) |> 
+    dplyr::group_by(scientific_name, common_name) |> 
+    dplyr::summarise(
+      nb_detections          = dplyr::n(),
+      nb_fichiers_distincts  = dplyr::n_distinct(original_file),
+      confiance_moyenne      = base::mean(confidence, na.rm = TRUE),
+      max_confidence         = base::max(confidence, na.rm = TRUE),
+      .groups = "drop"
+    ) |> 
+    dplyr::arrange(dplyr::desc(nb_detections))
+
+  utils::write.csv(
+    inventaire_global, 
+    base::file.path(audio_dir, base::paste0(nom_projet, "_ALL_SPECIES.csv")), 
+    row.names = FALSE
+  )
+
+  base::message("Analyses terminées avec succès.")
+  
+  return(base::list(cortege = cortege_final, inventaire = inventaire_global))
+}
+```
+
+```{r}
+results<-alldevices_species_summary(audio_dir)
+print(results)
+```
+
+Vous pouvez ensuite lancer les mêmes graphiques que sur le Crex pour déterminer l'activité de chant de chaque espèce ciblée.
