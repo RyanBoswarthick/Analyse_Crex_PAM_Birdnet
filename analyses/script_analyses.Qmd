@@ -32,15 +32,15 @@ La structure des dossiers pour correctement exploiter les résultats est la suiv
 
 Dans le dossier "Test algo" qui contient toutes les données sur le suivi PAM, j'ai :
 
-![](Capture%20d'écran%202026-03-30%20141827.png){fig-align="center" width="600"}
+![](images/Capture d'écran 2026-03-30 141827.png){fig-align="center" width="600"}
 
 Par dossier associé à chaque enregistreur, j'ai l'ensemble de mes nuits - ici 3.
 
-![](Capture%20d'écran%202026-03-30%20141837.png){fig-align="center" width="600"}
+![](images/Capture d'écran 2026-03-30 141837-3.png){fig-align="center" width="600"}
 
 Par dossier associé à chaque nuit, j'ai 144 fichiers audio.
 
-![](Capture%20d'écran%202026-03-30%20142443.png){fig-align="center" width="600"}
+![](images/Capture d'écran 2026-03-30 142443-2.png){fig-align="center" width="600"}
 
 ## Importance des noms de dossier/ fichier
 
@@ -71,31 +71,31 @@ Une solution est de réduire le nombre de CPU impliqués dans l'analyse BirdNET 
 
 -   Une fois l'application BirdNET Analyzer lancée, sélectionner "Batch analysis" (parmi les onglets en haut de l'interface).
 
-![](Capture%20d'écran%202026-03-20%20164315.png){fig-align="center"}
+![](images/Capture d'écran 2026-03-20 164315.png){fig-align="center"}
 
 -   Sélectionner une "input directory", qui représente le dossier qui contient tous les fichiers que vous souhaitez analyser.\
     Une fois sélectionné, une liste de l'ensemble des fichiers *.wav* présents dans le dossier devrait s'afficher.
 
 -   Ne surtout pas toucher à "output directory" - tous les *.csv* issus de l'algorithme BirdNET seront enregistrés dans le même dossier que le fichier audio d'origine.
 
-![](Capture%20d'écran%202026-03-20%20164323.png){fig-align="center"}
+![](images/Capture d'écran 2026-03-20 164323.png){fig-align="center"}
 
 2.  **Paramètres associés à l'analyse**
 
 -   Ouvrir l'onglet "Inference settings", régler le paramètre "sensitivity" sur 1.5, le "minimum confidence" sur 0.5, et ne pas toucher au reste.
 
-![](Capture%20d'écran%202026-03-20%20164330.png){fig-align="center"}
+![](images/Capture d'écran 2026-03-20 164330.png){fig-align="center"}
 
 -   Ouvrir l'onglet "Species selection", sélectionner "Custom species list" et définir la liste d'espèces souhaitées (qui doit au moins contenir le Râle des genêts). Cette option vous permet de lancer les analyser en limitant l'algorithme à cette liste d'espèces prédéfinie, évitant ainsi des identifications d'oiseaux non présents sur le site (me contacter si besoin d'une liste au format .txt)
 
-![](Capture%20d'écran%202026-03-20%20164336.png){fig-align="center"}
+![](images/Capture d'écran 2026-03-20 164336.png){fig-align="center"}
 
 **ATTENTION** : le seuil de confiance de 0.5 est bas, et n'est valable que pour des identifications de râle car l'espèce a un chant facile à identifier (peut aussi se prêter pour le Butor étoilé). Si vous souhaitez étudier tout un cortège d'espèces, je vous conseille de prendre un seuil plus élevé (au minimum 0.7 - mais il y aura quand même des faux positifs (mauvaises identifications) - attention notamment aux marouettes).
 
 -   Ouvrir l'onglet "Output settings", sélectionner uniquement "CSV".\
     Aucune autre option ne doit être cochée.
 
-![](Capture%20d'écran%202026-03-20%20164359.png){fig-align="center"}
+![](images/Capture d'écran 2026-03-20 164359.png){fig-align="center"}
 
 Une fois toutes ces options cochées, la liste d'espèces cibles chargée, la puissance de votre ordinateur testée, vous pouvez lancer les analyses sur vos données en appuyant sur le bouton "**Analyze**".
 
@@ -297,6 +297,8 @@ alldevices_data <- show_me_some_crex(audio_dir)
 ```
 
 Pour 1296 fichiers audio, cette boucle a mis 30 secondes pour tourner.
+
+Vous pouvez retrouver toutes les sorties de cette fonction dans les différents dossiers et fichiers contenus dans dossier "data" sur le Github.
 
 # Analyses
 
@@ -698,9 +700,11 @@ crex_when_do_you_sing(
  # date_fin =  "2025-06-01")
 ```
 
-Avec l'ensemble de ces graphiques, vous devriez pouvoir comprendre la phénologie de chant des Râles des genêts. N'hésitez pas à rajouter des éléments pour l'adapter au mieux à vos enjeux.
+Avec l'ensemble de ces graphiques, vous devriez pouvoir comprendre la phénologie de chant des Râles des genêts.
 
-Bonnes analyses !
+N'hésitez pas à rajouter des éléments pour l'adapter au mieux à vos enjeux.
+
+Bonnes analyses ! Contactez moi si vous avez besoin d'aide :)
 
 \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
 
