@@ -309,13 +309,17 @@ Une fois tous les fichiers .csv analysés et compilés, il est possible d'analys
 ```{r}
 # Chemins vers le fichier csv compilé (qui contient toutes les sorties de BirdNET)
     #soit directement depuis la boucle précédente
-alldevices_data 
+alldevices_data<-alldevices_data
 
     # soit en chargeant le fichier csv
-alldevices_data<-read.csv("C:/Users/rboswarthick/Desktop/PhD stuff/LPO/Terrain RdG/PAM/Test algo/Test algo_ALLDEVICES_ALLDAYS_CREX.csv")
+# alldevices_data<-read.csv("C:/Users/rboswarthick/Desktop/PhD stuff/LPO/Terrain RdG/PAM/Test algo/Test algo_ALLDEVICES_ALLDAYS_CREX.csv")
 
 #Chargement du dossier où tous les pour enregistrer les graphs
-audio_dir <- "C:/Users/rboswarthick/Desktop/PhD stuff/LPO/Terrain RdG/PAM/Test algo"
+audio_dir <- tcltk::tk_choose.dir(
+  default = "C:/", 
+  caption = "Choisissez le dossier pour la suite des analyses"
+)
+message(paste0("Le dossier - ", audio_dir," a bien été chargé, les analyses vont pouvoir démarrer"))
 
 all_data_clean <- alldevices_data |> 
   dplyr::mutate(
