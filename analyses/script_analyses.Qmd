@@ -182,7 +182,6 @@ show_me_some_crex <- function(audio_dir) {
 
   all_detections <- csv_files |> 
     purrr::map(\(file) {
-      # Lecture brute
       df <- utils::read.csv(file, stringsAsFactors = FALSE, check.names = FALSE)
       
       # Harmonisation nom de colonne
@@ -195,7 +194,6 @@ show_me_some_crex <- function(audio_dir) {
       parent_folder   <- base::basename(base::dirname(file))      
       grandparent_folder <- base::basename(base::dirname(base::dirname(file))) 
 
-      # --- NOUVELLE STRATÉGIE D'EXTRACTION (SPLIT SUR LE PREMIER _) ---
       # Structure attendue : ENREGISTREUR_DATE_HEURE
       parts <- stringr::str_split(nom_fichier_csv, "_")[[1]]
       dt_obj <- base::as.POSIXct(NA)
@@ -207,7 +205,6 @@ show_me_some_crex <- function(audio_dir) {
         dt_obj <- lubridate::ymd_hms(base::paste0(date_part, time_part), quiet = TRUE)
       }
 
-      # Sécurité (Fallback) : si le split a échoué, on tente le regex ciblé
       if (base::is.na(dt_obj)) {
         raw_ts <- stringr::str_extract(nom_fichier_csv, "\\d{8}[._]\\d{6}")
         if (!base::is.na(raw_ts)) {
@@ -216,11 +213,10 @@ show_me_some_crex <- function(audio_dir) {
         }
       }
       
-      # Si toujours NA, lecture des métadonnées internes du CSV
+      # Si toujours NA, lecture des métadonnées internes du CSV - pas recommandé car souvent pas correct
       if (base::is.na(dt_obj) && "recording_start" %in% base::names(df)) {
         dt_obj <- lubridate::as_datetime(df$recording_start[1])
       }
-      # ---------------------------------------------------------------
 
       nom_wav <- stringr::str_remove(nom_fichier_csv, "(_birdnet\\.csv|\\.BirdNET\\.results\\.csv)$") |> 
         base::paste0(".wav")
