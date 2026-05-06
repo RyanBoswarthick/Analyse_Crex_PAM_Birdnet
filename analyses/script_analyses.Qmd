@@ -25,8 +25,9 @@ Ce fichier Quarto contient les fonctions et scripts R pour l'analyse de fichiers
 
 La structure des dossiers pour correctement exploiter les résultats est la suivante :\
 1 - Dossier global (par exemple : PAM_BVA_2026)\
-2 - Dossier Enregistreurs (par exemple : Noyant1)\
-3 - Dossier Journées - au format YYYYMMDD
+2 - Dossier numéro de relevé - (par exemple : relev1_04052026)
+3 - Dossier Enregistreurs (par exemple : Noyant1)\
+4 - Dossier Journées - au format YYYYMMDD
 
 [Exemple :]{.underline}
 
@@ -56,14 +57,15 @@ Il est important d'analyser les fichiers audio via l'application BirdNET Analyze
 
 Il est important de tester la vitesse de traitement des données par votre ordinateur, le temps de traitement peut être très long pour un nombre important de fichiers.\
 \
-Par exemple, pour un jeu de données contenant 3 nuits complètes pour 3 enregistreurs (1296 fichiers audio), les analyses via BirdNET mettent 18 minutes (Confiance 0.6 - Sensibilité 1.5 - liste d'espèces Crex crex only).
+Par exemple, sur mon ordinateur, pour un jeu de données contenant 13 nuits complètes pour 1 enregistreur (144x13 = 1296 fichiers audio), les analyses via BirdNET mettent 25 minutes (Confiance 0.7 - Sensibilité 1.5 - liste d'espèces Crex crex only).
 
 Deux solutions pour contrer ce long traitement :
 
--   Traiter chaque nuit ou enregistreur séparemment (changer de répertoire de travail à chaque fois)
+-   Traiter chaque nuit ou enregistreur séparemment (changer de répertoire de travail à chaque fois sur BirdNET)
 
--   Laisser tourner les analyses la nuit (en étant sur que l'ordinateur/ processeur ne se mettra pas en veille - ce qui stoppera l'analyse)
+-   Laisser tourner les analyses la nuit pour tous les enregistreurs par relevé (en étant sur que l'ordinateur/ processeur ne se mettra pas en veille - ce qui stoppera l'analyse) - d'où l'intérêt d'avoir créé des sous dossier par relevé
 
+Bonus :
 Une fois l'algorithme BirdNET lancé, en fonction de la puissance de votre ordinateur, il vous sera difficile de réaliser d'autres tâches.\
 Une solution est de réduire le nombre de CPU impliqués dans l'analyse BirdNET - ce qui augmentera le temps de traitement mais vous pourrez effectuer d'autres tâches sur votre ordinateur.
 
@@ -82,7 +84,7 @@ Une solution est de réduire le nombre de CPU impliqués dans l'analyse BirdNET 
 
 2.  **Paramètres associés à l'analyse**
 
--   Ouvrir l'onglet "Inference settings", régler le paramètre "sensitivity" sur 1.5, le "minimum confidence" sur 0.5, et ne pas toucher au reste.
+-   Ouvrir l'onglet "Inference settings", régler le paramètre "sensitivity" sur 1.5, le "minimum confidence" sur 0.7, et ne pas toucher au reste.
 
 ![](images/Capture%20d'écran%202026-03-20%20164330.png){fig-align="center"}
 
@@ -90,7 +92,7 @@ Une solution est de réduire le nombre de CPU impliqués dans l'analyse BirdNET 
 
 ![](images/Capture%20d'écran%202026-03-20%20164336.png){fig-align="center"}
 
-**ATTENTION** : le seuil de confiance de 0.5 est bas, et n'est valable que pour des identifications de râle car l'espèce a un chant facile à identifier (peut aussi se prêter pour le Butor étoilé). Si vous souhaitez étudier tout un cortège d'espèces, je vous conseille de prendre un seuil plus élevé (au minimum 0.7 - mais il y aura quand même des faux positifs (mauvaises identifications) - attention notamment aux marouettes).
+**ATTENTION** : le seuil de confiance de 0.7 est bas, et n'est valable que pour des identifications de râle car l'espèce a un chant facile à identifier (peut aussi se prêter pour le Butor étoilé). Si vous souhaitez étudier tout un cortège d'espèces, je vous conseille de prendre un seuil plus élevé (au minimum 0.8 ou 0.9 - mais il y aura quand même des faux positifs (mauvaises identifications) - attention notamment aux marouettes).
 
 -   Ouvrir l'onglet "Output settings", sélectionner uniquement "CSV".\
     Aucune autre option ne doit être cochée.
@@ -161,7 +163,7 @@ show_me_some_crex <- function(audio_dir) {
     base::stop("Le dossier spécifié n'existe pas : ", audio_dir)
   }
 
-  # Chargement de tous les csv issus de l'algorithme birdnet - la nomenclature est tres importante, pour éviter de charger les csv issus d'anciens scripts de compilation
+  # Chargement de tous les csv issus de l'algorithme birdnet
   csv_files <- base::list.files(
     path = audio_dir,
     pattern = "(_birdnet\\.csv|\\.BirdNET\\.results\\.csv)$",
@@ -169,7 +171,6 @@ show_me_some_crex <- function(audio_dir) {
     recursive = TRUE
   )
 
-  # Si aucun csv contenu dans l'audio_dir, message d'erreur
   if (base::length(csv_files) == 0) return(base::message("Aucun fichier CSV trouvé."))
 
   # Alerte si doublons
@@ -179,33 +180,48 @@ show_me_some_crex <- function(audio_dir) {
     base::warning("Doublons de noms détectés (traités séparément) : ", base::paste(doublons, collapse = ", "))
   }
 
-  # Si tout va bien, suite de la fonction
-  
   all_detections <- csv_files |> 
     purrr::map(\(file) {
       # Lecture brute
       df <- utils::read.csv(file, stringsAsFactors = FALSE, check.names = FALSE)
       
-      # colonne scientific name en minuscule
+      # Harmonisation nom de colonne
       col_idx <- base::grep("Scientific.name", base::names(df), ignore.case = TRUE)
       if (base::length(col_idx) > 0) {
         base::names(df)[col_idx] <- "scientific_name"
       }
 
-      # Arborescence de chaque csv stockée
       nom_fichier_csv <- base::basename(file)
       parent_folder   <- base::basename(base::dirname(file))      
       grandparent_folder <- base::basename(base::dirname(base::dirname(file))) 
 
-      # Extraction date et heure en fonction du nom du fichier = IMPORTANT DE BIEN NOMMER LES FICHIERS
-      raw_ts   <- stringr::str_extract(nom_fichier_csv, "\\d{8}.\\d{6}")
-      clean_ts <- stringr::str_replace_all(raw_ts, "[^0-9]", "")
-      dt_obj   <- lubridate::ymd_hms(clean_ts, quiet = TRUE)
+      # --- NOUVELLE STRATÉGIE D'EXTRACTION (SPLIT SUR LE PREMIER _) ---
+      # Structure attendue : ENREGISTREUR_DATE_HEURE
+      parts <- stringr::str_split(nom_fichier_csv, "_")[[1]]
+      dt_obj <- base::as.POSIXct(NA)
       
+      if (base::length(parts) >= 3) {
+        date_part <- parts[2] # Récupère le bloc après le 1er _
+        time_part <- stringr::str_extract(parts[3], "^\\d{6}") # Isole les 6 chiffres de l'heure
+        
+        dt_obj <- lubridate::ymd_hms(base::paste0(date_part, time_part), quiet = TRUE)
+      }
+
+      # Sécurité (Fallback) : si le split a échoué, on tente le regex ciblé
+      if (base::is.na(dt_obj)) {
+        raw_ts <- stringr::str_extract(nom_fichier_csv, "\\d{8}[._]\\d{6}")
+        if (!base::is.na(raw_ts)) {
+          clean_ts <- stringr::str_replace_all(raw_ts, "[^0-9]", "")
+          dt_obj   <- lubridate::ymd_hms(clean_ts, quiet = TRUE)
+        }
+      }
+      
+      # Si toujours NA, lecture des métadonnées internes du CSV
       if (base::is.na(dt_obj) && "recording_start" %in% base::names(df)) {
         dt_obj <- lubridate::as_datetime(df$recording_start[1])
       }
-      
+      # ---------------------------------------------------------------
+
       nom_wav <- stringr::str_remove(nom_fichier_csv, "(_birdnet\\.csv|\\.BirdNET\\.results\\.csv)$") |> 
         base::paste0(".wav")
 
@@ -224,7 +240,6 @@ show_me_some_crex <- function(audio_dir) {
         df <- base::data.frame(scientific_name = NA)
       }
       
-      # Fusion des data
       base::cbind(df, meta_info) |> 
         dplyr::mutate(
           is_crex = !base::is.na(scientific_name) & 
@@ -233,12 +248,10 @@ show_me_some_crex <- function(audio_dir) {
     }) |> 
     purrr::list_rbind()
 
-  # Résumé + nom espèce
   process_recap <- function(data) {
     data |> 
       dplyr::group_by(file_id, original_file, date_obs, time_obs) |> 
       dplyr::summarise(
-        # On garde le nom scientifique s'il y a présence, sinon NA
         Scientific_name = "Crex crex",
         Presence = base::as.integer(base::any(is_crex, na.rm = TRUE)), 
         Contacts = base::sum(is_crex, na.rm = TRUE),
@@ -251,19 +264,23 @@ show_me_some_crex <- function(audio_dir) {
   all_detections |> 
     dplyr::group_split(folder_path) |> 
     purrr::walk(\(data_dossier) {
-      recap <- process_recap(data_dossier) |> dplyr::arrange(time_obs)
-      utils::write.csv(recap, base::file.path(data_dossier$folder_path[1], base::paste0(data_dossier$session_id[1], "_CREX.csv")), row.names = FALSE)
+      if (base::nrow(data_dossier) > 0 && !base::is.na(data_dossier$folder_path[1])) {
+        recap <- process_recap(data_dossier) |> dplyr::arrange(time_obs)
+        utils::write.csv(recap, base::file.path(data_dossier$folder_path[1], base::paste0(data_dossier$session_id[1], "_CREX.csv")), row.names = FALSE)
+      }
     })
 
   # Recap par enregistreur
   all_detections |> 
     dplyr::group_split(enregistreur) |> 
     purrr::walk(\(data_enr) {
-      recap <- process_recap(data_enr) |> dplyr::arrange(date_obs, time_obs)
-      utils::write.csv(recap, base::file.path(base::dirname(data_enr$folder_path[1]), base::paste0(data_enr$enregistreur[1], "_CREX.csv")), row.names = FALSE)
+      if (base::nrow(data_enr) > 0 && !base::is.na(data_enr$folder_path[1])) {
+        recap <- process_recap(data_enr) |> dplyr::arrange(date_obs, time_obs)
+        utils::write.csv(recap, base::file.path(base::dirname(data_enr$folder_path[1]), base::paste0(data_enr$enregistreur[1], "_CREX.csv")), row.names = FALSE)
+      }
     })
 
-  # Recap pour TOUS les enregistreurs
+  # Recap final Master
   master_final <- all_detections |> 
     dplyr::group_by(enregistreur, file_id, original_file, date_obs, time_obs) |> 
     dplyr::summarise(
@@ -285,7 +302,7 @@ show_me_some_crex <- function(audio_dir) {
 
   utils::write.csv(master_final, base::file.path(audio_dir, base::paste0(base::basename(audio_dir), "_ALLDEVICES_ALLDAYS_CREX.csv")), row.names = FALSE)
   
-  base::message("Succès ! Tous les CSV ont été générés. Vous pouvez procéder à l'exploration des données")
+  base::message("Succès ! Tous les CSV ont été générés.")
   return(master_final)
 }
 ```
@@ -294,6 +311,8 @@ show_me_some_crex <- function(audio_dir) {
 
 ```{r}
 alldevices_data <- show_me_some_crex(audio_dir)
+
+str(alldevices_data)
 ```
 
 Pour 1296 fichiers audio, cette boucle a mis 30 secondes pour tourner.
@@ -316,7 +335,7 @@ alldevices_data<-alldevices_data
 
 #Chargement du dossier où tous les pour enregistrer les graphs
 audio_dir <- tcltk::tk_choose.dir(
-  default = "C:/", 
+  default = audio_dir, 
   caption = "Choisissez le dossier pour la suite des analyses"
 )
 message(paste0("Le dossier - ", audio_dir," a bien été chargé, les analyses vont pouvoir démarrer"))
